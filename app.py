@@ -1,332 +1,163 @@
 import streamlit as st
 import random
 import pandas as pd
-import plotly.express as px
 import time
-
-# Cấu hình trang
-st.set_page_config(layout="wide", page_title="Dice Probability Master")
-
-# CSS để giao diện mượt mà trên điện thoại
-st.markdown("""
-    <style>
-    .stButton>button { width: 100%; border-radius: 20px; height: 3em; background-color: #007bff; color: white; }
-    .reportview-container .main .block-container { padding-top: 1rem; }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.title("🎲 Dice Probability Master v2.0")
-
-# --- LAYOUT CHÍNH ---
-col_left, col_center, col_right = st.columns([1, 1.5, 1.5])
-
-# --- CỘT TRÁI: THIẾT LẬP ---
-with col_left:
-    st.header("⚙️ Thiết lập")
-    num_dice = st.radio("Chọn số xúc xắc:", [1, 2], horizontal=True)
-    
-    if num_dice == 1:
-        events = {
-            "Mặt chẵn": lambda x: x[0] % 2 == 0,
-            "Số chấm > 4": lambda x: x[0] > 4,
-            "Số nguyên tố": lambda x: x[0] in [2, 3, 5],
-        }
-    else:
-        events = {
-            "Tổng bằng 7": lambda x: sum(x) == 7,
-            "Tổng là số chẵn": lambda x: sum(x) % 2 == 0,
-            "Số kép (1-1, 2-2...)": lambda x: x[0] == x[1],
-        }
-    
-    selected_event = st.selectbox("Biến cố cần dự đoán:", list(events.keys()))
-    num_trials = st.select_slider("Số lần gieo:", options=[10, 100, 500, 1000], value=100)
-
-    st.divider()
-    st.subheader("🎮 Chế độ Trò chơi")
-    user_guess = st.slider("Dự đoán xác suất của bạn (%)", 0, 100, 50)
-    
-    btn_run = st.button("🔥 BẮT ĐẦU GIEO")
-
-# --- CỘT GIỮA: MÔ PHỎNG & ĐỒ THỊ ---
-with col_center:
-    st.header("🎰 Thực nghiệm")
-    if btn_run:
-        # Hiệu ứng chờ đợi gieo xúc xắc
-        with st.spinner('Đang gieo xúc xắc...'):
-            time.sleep(1)
-            results = []
-            for _ in range(num_trials):
-                d1 = random.randint(1, 6)
-                d2 = random.randint(1, 6) if num_dice == 2 else None
-                results.append((d1, d2) if d2 else (d1,))
-            st.session_state.results = results
-            st.session_state.num_dice = num_dice
-
-    if 'results' in st.session_state:
-        res = st.session_state.results
-        df = pd.DataFrame(res)
-        
-        # Biểu đồ tần suất
-        if st.session_state.num_dice == 1:
-            data_counts = df[0].value_counts().sort_index().reset_index()
-            data_counts.columns = ['Mặt', 'Số lần']
-            fig = px.bar(data_counts, x='Mặt', y='Số lần', color='Số lần', title="Tần suất các mặt")
-        else:
-            df['Tổng'] = df[0] + df[1]
-            data_counts = df['Tổng'].value_counts().sort_index().reset_index()
-            fig = px.bar(data_counts, x='index', y='Tổng', color='Tổng', title="Tần suất tổng số chấm")
-        
-        st.plotly_chart(fig, use_container_width=True)
-
-# --- CỘT PHẢI: KẾT QUẢ & ĐIỂM SỐ ---
-with col_right:
-    st.header("🏆 Kết quả")
-    if 'results' in st.session_state:
-        check_fn = events[selected_event]
-        success_count = sum(1 for r in st.session_state.results if check_fn(r))
-        actual_prob = (success_count / num_trials) * 100
-        
-        # Tính điểm dựa trên độ lệch giữa dự đoán và thực tế
-        error = abs(user_guess - actual_prob)
-        score = max(0, 100 - int(error))
-        
-        st.metric("Xác suất thực nghiệm", f"{actual_prob:.1f}%")
-        st.metric("Dự đoán của bạn", f"{user_guess}%")
-        
-        st.subheader(f"⭐ Điểm chính xác: {score}/100")
-        
-        if score > 90:
-            st.balloons()
-            st.success("Tuyệt vời! Bạn là bậc thầy xác suất!")
-        elif score > 70:
-            st.info("Rất tốt! Dự đoán khá sát thực tế.")
-        else:
-            st.warning("Cố gắng lên! Hãy thử gieo số lần lớn hơn nhé.")
-
-        with st.expander("Giải thích toán học"):
-            st.write(f"Trong {num_trials} lần thực nghiệm, biến cố '{selected_event}' xảy ra {success_count} lần.")
-            st.latex(r"P(A) \approx \frac{n(A)}{N}")import streamlit as st
-import random
-import pandas as pd
-import plotly.express as px
-import time
-import base64
 
 # --- CẤU HÌNH TRANG ---
-st.set_page_config(layout="wide", page_title="Dice Master 3D Pro")
+st.set_page_config(layout="wide", page_title="Xác suất - Trịnh Thị Như Quỳnh")
 
-# --- DỮ LIỆU ÂM THANH (Base64 encode để không cần file mp3 riêng lẻ) ---
-# Đây là tiếng xúc xắc ngắn gọn được mã hóa sẵn để nhúng trực tiếp vào code
-dice_sound_b64 = """
-T2dnUwACAAAAAAAAAABQZnxAAAAAAABH81cBe0JvorU/N2F1ZGkueGlwaC5vcmcvZmxhYy8w
-LjEuMy02NmVmNTFjOWEyZGMxYWM5YmI1NGIyZDk1ODFkZWE5OC9lbi53aWtpcGVkaWEub3Jn
-L3dpa2kvQXVkaW9fc2lnbmFsX3Byb2Nlc3NpbmcgKEZMQUMpAAEEZW5jb2Rlci1pZCAgPT0g
-djEuMS4wIChsaWJmbGFjIDEuMy4yKSAgLyAgc2VyaWFsLTIgPT0gMTEwNjE0ODg1NzAgIC8g
-IHByZWRpY3Rvci1vcmRlciAgPT0gOCAgLyAgbWluLXBhcnRpdGlvbi1vcmRlciAgPT0gMCAg
-LyAgbWF4LXBhcnRpdGlvbi1vcmRlciAgPT0gOCAgLyAgc2FtcGxlLXJhdGUgID09IDQ0MTAw
-ICAvICBjaGFubmVscyAgPT0gMSAgLyAgYml0cy1wZXItc2FtcGxlICA9PSAxNgAgZGF0YQAA
-ABcAAABXAAAAZwAAAFwAAABwAAAAWAAAAHIAAABNAAAAcgAAAEkAAAB8AAAAZAAAAJQAAAB/
-AAAAoAAAAIcAAACyAAAAmAAAAMQAAACuAAAA4AAAAMIAAADuAAAA3gAAAPUAAAD1AAAA/wAA Let's pretend this is a full dice sound string for brevity. 
-Ghi chú: Đoạn mã này là giả lập cho ngắn gọn. Trong thực tế bạn cần một chuỗi base64 mp3/ogg thực sự.
-Để code chạy được ngay, tôi sẽ dùng một thủ thuật khác bên dưới.
-"""
-# HACK: Để đơn giản hóa việc copy-paste và đảm bảo chạy được ngay mà không cần chuỗi base64 dài dòng, 
-# chúng ta sẽ dùng một link âm thanh ngắn có sẵn trên mạng.
-sound_url = "https://www.soundjay.com/misc/sounds/dice-roll-1.mp3"
-
-def play_sound():
-    """Hàm chèn HTML ẩn để phát âm thanh"""
-    sound_html = f"""
-        <audio autoplay>
-        <source src="{sound_url}" type="audio/mpeg">
-        Your browser does not support the audio element.
-        </audio>
-    """
-    # Nhúng vào một container rỗng để không hiện trình phát nhạc
-    st.empty().markdown(sound_html, unsafe_allow_html=True)
-
-# --- CSS TÙY CHỈNH (Tạo hiệu ứng 3D và Rung lắc) ---
+# --- CSS TỐI ƯU CHO TRÌNH CHIẾU ---
 st.markdown("""
     <style>
-    /* Định nghĩa hiệu ứng rung lắc khi gieo */
-    @keyframes shake {
-      0% { transform: translate(1px, 1px) rotate(0deg); }
-      10% { transform: translate(-1px, -2px) rotate(-1deg); }
-      20% { transform: translate(-3px, 0px) rotate(1deg); }
-      30% { transform: translate(3px, 2px) rotate(0deg); }
-      40% { transform: translate(1px, -1px) rotate(1deg); }
-      50% { transform: translate(-1px, 2px) rotate(-1deg); }
-      60% { transform: translate(-3px, 1px) rotate(0deg); }
-      70% { transform: translate(3px, 1px) rotate(-1deg); }
-      80% { transform: translate(-1px, -1px) rotate(1deg); }
-      90% { transform: translate(1px, 2px) rotate(0deg); }
-      100% { transform: translate(1px, -2px) rotate(-1deg); }
-    }
-
-    /* Class áp dụng hiệu ứng rung */
-    .rolling {
-        animation: shake 0.5s;
-        animation-iteration-count: infinite;
-        opacity: 0.7;
-    }
-
-    /* Style cho xúc xắc 3D giả lập */
-    .dice-3d {
-        font-size: 100px;
-        color: #d9534f; /* Màu đỏ của xúc xắc */
-        text-shadow: 2px 2px 4px #000000, 4px 4px 0px #8c2b29; /* Tạo bóng đổ nổi khối */
-        display: inline-block;
-        margin: 10px;
-        transition: all 0.3s ease;
+    html, body, [class*="st-"] { font-size: 26px !important; }
+    h1 { font-size: 70px !important; color: #1e3c72; text-align: center; }
+    h2 { font-size: 45px !important; color: #2a5298; border-bottom: 3px solid #1e3c72; }
+    
+    .stButton>button {
+        width: 100% !important; height: 100px !important;
+        font-size: 40px !important; font-weight: bold !important;
+        background: linear-gradient(135deg, #e52d27, #b31217) !important;
+        color: white !important; border-radius: 20px !important;
     }
     
-    .final-result {
-        transform: scale(1.1); /* Phóng to nhẹ khi ra kết quả cuối */
+    .dice-container {
+        display: flex; justify-content: center; align-items: center;
+        height: 300px; background: white; border-radius: 30px;
+        box-shadow: inset 0 0 30px rgba(0,0,0,0.1); margin: 20px 0; border: 1px solid #ddd;
     }
-
-    .stButton>button { width: 100%; border-radius: 20px; height: 3em; font-weight: bold; background: linear-gradient(to right, #4e54c8, #8f94fb); color: white; border: none;}
+    .dice-img { width: 170px; height: 170px; margin: 0 20px; }
+    
+    .author-footer {
+        position: fixed; left: 30px; bottom: 30px; background-color: rgba(255, 255, 255, 0.9);
+        padding: 15px; border-radius: 12px; border-left: 10px solid #1e3c72;
+        font-size: 26px; font-weight: bold; color: #1e3c72; z-index: 1000;
+    }
+    
+    .timer-box {
+        text-align: center; background: #000; color: #ff0000;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 75px; padding: 10px; border-radius: 15px; border: 4px solid #333;
+    }
+    
+    .theory-box {
+        background-color: #f0f7ff; padding: 25px; border-radius: 15px;
+        border: 2px solid #2196f3; font-size: 28px; margin-bottom: 25px;
+    }
+    .conclusion-box {
+        background-color: #fff9c4; padding: 25px; border-radius: 15px;
+        border: 4px dashed #fbc02d; font-size: 32px; color: #000;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# Dictionary ánh xạ số sang icon Unicode
-dice_icons = {1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅"}
+# --- TÁC GIẢ ---
+st.markdown('<div class="author-footer">Giáo viên: Trịnh Thị Như Quỳnh<br>Trường THCS Trần Hưng Đạo</div>', unsafe_allow_html=True)
 
-st.title("🎲 Dice Master 3D Pro: Thử tài Xác suất")
-st.divider()
+st.write("# 🎲 THỰC NGHIỆM XÁC SUẤT")
 
-# --- LAYOUT CHÍNH ---
-col_left, col_center, col_right = st.columns([1, 1.5, 1.5])
+col_left, col_center, col_right = st.columns([1.1, 1.4, 1.5])
 
-# --- CỘT TRÁI: THIẾT LẬP & DỰ ĐOÁN ---
+# --- CỘT 1: THIẾT LẬP ---
 with col_left:
-    st.subheader("🛠 Thiết lập & Dự đoán")
-    num_dice = st.radio("Số lượng xúc xắc:", [1, 2], horizontal=True, key="num_dice_select")
+    st.write("## ⚙️ Thiết lập")
+    num_dice = st.radio("1. Số xúc xắc:", [1, 2], horizontal=True)
     
     if num_dice == 1:
         events = {
-            "Mặt chẵn": lambda x: x[0] % 2 == 0,
-            "Số chấm > 4": lambda x: x[0] > 4,
-            "Số nguyên tố (2,3,5)": lambda x: x[0] in [2, 3, 5],
+            "Mặt chấm chẵn": {"fn": lambda x: x[0] % 2 == 0, "theory": "3/6 = 0.5", "t_val": 0.5, "sample": "{2; 4; 6}"},
+            "Mặt chấm lẻ": {"fn": lambda x: x[0] % 2 != 0, "theory": "3/6 = 0.5", "t_val": 0.5, "sample": "{1; 3; 5}"},
+            "Mặt nguyên tố (2,3,5)": {"fn": lambda x: x[0] in [2,3,5], "theory": "3/6 = 0.5", "t_val": 0.5, "sample": "{2; 3; 5}"},
+            "Mặt chấm > 4": {"fn": lambda x: x[0] > 4, "theory": "2/6 ≈ 0.33", "t_val": 2/6, "sample": "{5; 6}"}
         }
     else:
         events = {
-            "Tổng bằng 7": lambda x: sum(x) == 7,
-            "Tổng chẵn": lambda x: sum(x) % 2 == 0,
-            "Số kép (Hai mặt giống nhau)": lambda x: x[0] == x[1],
+            "Tổng bằng 7": {"fn": lambda x: sum(x) == 7, "theory": "6/36 ≈ 0.17", "t_val": 6/36, "sample": "{(1,6); (2,5); (3,4); (4,3); (5,2); (6,1)}"},
+            "Hai mặt giống nhau": {"fn": lambda x: x[0] == x[1], "theory": "6/36 ≈ 0.17", "t_val": 6/36, "sample": "{(1,1); (2,2); (3,3); (4,4); (5,5); (6,6)}"},
+            "Tổng là số lẻ": {"fn": lambda x: sum(x) % 2 != 0, "theory": "18/36 = 0.5", "t_val": 0.5, "sample": "18 cặp số lẻ"}
         }
-    
-    selected_event = st.selectbox("Chọn biến cố:", list(events.keys()))
-    num_trials = st.select_slider("Số lần gieo (N):", options=[10, 50, 100, 500, 1000], value=50)
+        
+    selected_name = st.selectbox("2. Chọn biến cố:", list(events.keys()))
+    num_trials = st.select_slider("3. Số lần gieo:", options=[10, 100, 500, 1000, 2000], value=100)
 
     st.write("---")
-    st.write("**🎯 Dự đoán của bạn:**")
-    user_guess = st.slider("Bạn nghĩ xác suất là bao nhiêu %?", 0, 100, 50, key="guess_slider")
-    
-    btn_run = st.button("🎲 GIEO NGAY! (Có âm thanh)")
+    st.write("## ⏱️ Thảo luận")
+    timer_val = st.number_input("Số giây:", min_value=5, max_value=300, value=60)
+    if st.button("🔔 BẮT ĐẦU ĐẾM"):
+        t_place = st.empty()
+        for i in range(timer_val, -1, -1):
+            m, s = divmod(i, 60)
+            t_place.markdown(f"<div class='timer-box'>{m:02d}:{s:02d}</div>", unsafe_allow_html=True)
+            time.sleep(1)
 
-# --- XỬ LÝ LOGIC GIEO VÀ HIỆU ỨNG ---
-if btn_run:
-    # 1. Tạo placeholder để chứa hình ảnh xúc xắc
-    dice_placeholder = col_center.empty()
-    
-    # 2. Phát âm thanh
-    play_sound()
-    
-    # 3. Hiệu ứng hình ảnh: Vòng lặp thay đổi mặt liên tục (Giả lập đang gieo)
-    for _ in range(12): # Chạy 12 khung hình trong khoảng 1.2 giây
-        temp_d1 = random.randint(1, 6)
-        if num_dice == 2:
-            temp_d2 = random.randint(1, 6)
-            # Hiển thị icon với class 'rolling' và 'dice-3d'
-            dice_placeholder.markdown(f"""
-                <div style='text-align: center;' class='rolling'>
-                    <span class='dice-3d'>{dice_icons[temp_d1]}</span>
-                    <span class='dice-3d'>{dice_icons[temp_d2]}</span>
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            dice_placeholder.markdown(f"""
-                <div style='text-align: center;' class='rolling'>
-                    <span class='dice-3d'>{dice_icons[temp_d1]}</span>
-                </div>
-            """, unsafe_allow_html=True)
-        time.sleep(0.1) # Dừng 0.1s mỗi khung hình
-
-    # 4. Tính toán kết quả thực tế sau khi hiệu ứng kết thúc
-    final_results = []
-    for _ in range(num_trials):
-        d1 = random.randint(1, 6)
-        d2 = random.randint(1, 6) if num_dice == 2 else None
-        final_results.append((d1, d2) if d2 else (d1,))
-    
-    st.session_state.final_results = final_results
-    st.session_state.last_roll = final_results[-1]
-
-# --- CỘT GIỮA: KẾT QUẢ CUỐI CÙNG & ĐỒ THỊ ---
+# --- CỘT 2: HOẠT ĐỘNG ---
 with col_center:
-    # Nếu không phải đang chạy nút bấm mà đã có kết quả trong session
-    if not btn_run and 'last_roll' in st.session_state:
-         dice_placeholder = st.empty() # Tạo lại placeholder nếu cần
+    st.write("## 🎰 Hoạt động")
+    placeholder = st.empty()
+    urls = {
+        1: "https://upload.wikimedia.org/wikipedia/commons/1/1b/Dice-1-b.svg",
+        2: "https://upload.wikimedia.org/wikipedia/commons/5/5f/Dice-2-b.svg",
+        3: "https://upload.wikimedia.org/wikipedia/commons/b/b1/Dice-3-b.svg",
+        4: "https://upload.wikimedia.org/wikipedia/commons/f/fd/Dice-4-b.svg",
+        5: "https://upload.wikimedia.org/wikipedia/commons/0/08/Dice-5-b.svg",
+        6: "https://upload.wikimedia.org/wikipedia/commons/2/26/Dice-6-b.svg",
+        "rolling": "https://upload.wikimedia.org/wikipedia/commons/a/a5/Dice_rolling.gif"
+    }
 
-    if 'last_roll' in st.session_state:
-        # Hiển thị kết quả mặt cuối cùng (Dừng lại, không rung nữa, thêm class final-result)
-        last = st.session_state.last_roll
+    placeholder.markdown("<div class='dice-container'><p style='color:#ccc;'>Sẵn sàng gieo...</p></div>", unsafe_allow_html=True)
+
+    if st.button("🚀 GIEO XÚC XẮC"):
+        placeholder.markdown(f'<div class="dice-container"><img src="{urls["rolling"]}" class="dice-img"></div>', unsafe_allow_html=True)
+        time.sleep(1.2)
+        
+        # Xử lý kết quả
+        res_list = []
+        for _ in range(num_trials):
+            d1 = random.randint(1,6)
+            d2 = random.randint(1,6) if num_dice == 2 else None
+            res_list.append((d1, d2))
+        st.session_state.all_res = res_list
+        
+        # Hiển thị ảnh kết quả cuối
+        last_d = res_list[-1]
+        img_html = f'<img src="{urls[last_d[0]]}" class="dice-img">'
         if num_dice == 2:
-             dice_placeholder.markdown(f"""
-                <div style='text-align: center;'>
-                    <span class='dice-3d final-result'>{dice_icons[last[0]]}</span>
-                    <span class='dice-3d final-result'>{dice_icons[last[1]]}</span>
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-             dice_placeholder.markdown(f"""
-                <div style='text-align: center;'>
-                    <span class='dice-3d final-result'>{dice_icons[last[0]]}</span>
-                </div>
-            """, unsafe_allow_html=True)
+            img_html += f'<img src="{urls[last_d[1]]}" class="dice-img">'
+        
+        placeholder.markdown(f'<div class="dice-container">{img_html}</div>', unsafe_allow_html=True)
 
-    st.write("---")
-    # Biểu đồ tần suất (như cũ)
-    if 'final_results' in st.session_state:
-        df = pd.DataFrame(st.session_state.final_results)
-        if num_dice == 1:
-            data_counts = df[0].value_counts().sort_index().reset_index()
-            data_counts.columns = ['Mặt', 'Số lần']
-            fig = px.bar(data_counts, x='Mặt', y='Số lần', color='Số lần', title=f"Tần suất trong {num_trials} lần gieo")
-        else:
-            df['Tổng'] = df[0] + df[1]
-            data_counts = df['Tổng'].value_counts().sort_index().reset_index()
-            fig = px.bar(data_counts, x='index', y='Tổng', color='Tổng', title=f"Tần suất Tổng trong {num_trials} lần gieo")
-        fig.update_layout(height=300)
-        st.plotly_chart(fig, use_container_width=True)
+    if 'all_res' in st.session_state:
+        st.write("### 📊 Thống kê tần suất")
+        df_tmp = pd.DataFrame(st.session_state.all_res)
+        v_data = df_tmp[0] if num_dice == 1 else df_tmp[0] + df_tmp[1]
+        counts = v_data.value_counts().sort_index().reset_index()
+        counts.columns = ['Giá trị', 'Số lần']
+        st.table(counts)
 
-# --- CỘT PHẢI: TÍNH ĐIỂM & SO SÁNH ---
+# --- CỘT 3: KẾT QUẢ ---
 with col_right:
-    st.subheader("🏆 Kết quả & Điểm số")
-    if 'final_results' in st.session_state:
-        check_fn = events[selected_event]
-        success_count = sum(1 for r in st.session_state.final_results if check_fn(r))
-        actual_prob = (success_count / num_trials) * 100
+    st.write("## 📈 Kết quả")
+    ev_info = events[selected_name]
+    
+    st.markdown(f"""
+        <div class="theory-box">
+            <b style="color:#1e3c72;">📍 Không gian mẫu biến cố (A):</b><br>
+            <span style="color:#d32f2f; font-weight:bold;">A = {ev_info['sample']}</span><br><br>
+            <b style="color:#1e3c72;">🎯 Xác suất lý thuyết P(A):</b><br>
+            <span style="font-size:45px; color:#1565c0; font-weight:bold;">{ev_info['theory']}</span>
+        </div>
+    """, unsafe_allow_html=True)
+
+    if 'all_res' in st.session_state:
+        ok_count = sum(1 for r in st.session_state.all_res if ev_info['fn'](r))
+        p_exp = ok_count / num_trials
         
-        # Tính điểm
-        error = abs(user_guess - actual_prob)
-        score = max(0, 100 - int(error * 1.5)) # Phạt nặng hơn nếu sai số lớn
-
-        st.metric("Xác suất Thực nghiệm (P')", f"{actual_prob:.1f}%", delta=f"{actual_prob - user_guess:.1f}% so với dự đoán")
+        st.metric("XÁC SUẤT THỰC NGHIỆM P'(A)", f"{p_exp:.2%}")
+        st.progress(p_exp)
         
-        st.write("---")
-        st.write(f"**Độ chính xác dự đoán:** {score}/100 điểm")
-        progress_bar = st.progress(score)
-
-        if score >= 90:
-            st.balloons()
-            st.success("Wow! Trực giác xác suất tuyệt vời! 🎉")
-        elif score >= 70:
-            st.info("Rất tốt! Bạn dự đoán khá sát. 👍")
-        elif score >= 50:
-            st.warning("Tạm ổn. Hãy thử tăng số lần gieo xem sao. 🤔")
-        else:
-            st.error("Chưa chính xác lắm. Xác suất thực tế khác xa dự đoán! 😅")
-
-    else:
-        st.info("👈 Đặt dự đoán ở cột bên trái rồi nhấn nút GIEO NGAY!")
+        st.markdown(f"""
+            <div class="conclusion-box">
+                <b>📌 KẾT LUẬN:</b><br>
+                Với n = {num_trials}, xác suất thực nghiệm là {p_exp:.2%}. 
+                Khi n càng lớn, con số này càng tiến gần đến {ev_info['t_val']:.2%}.
+            </div>
+            """, unsafe_allow_html=True)
